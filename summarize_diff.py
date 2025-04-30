@@ -157,7 +157,7 @@ if not api_key:
 
 # Define branch info
 main_branch = "main"
-current_branch = "test_branch"  # You can auto-detect with Git if needed
+current_branch = "test_repo_change_summary_test"  # You can auto-detect with Git if needed
 
 # Ensure working directory is clean
 status = subprocess.check_output(["git", "status", "--porcelain"]).decode().strip()
