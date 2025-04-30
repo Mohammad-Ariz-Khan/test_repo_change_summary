@@ -72,73 +72,161 @@
 
 
 
+# import subprocess
+# import os
+# from dotenv import load_dotenv
+# from openai import OpenAI
+
+# # Load environment variables
+# load_dotenv()
+# api_key = os.getenv("OPENAI_API_KEY")
+
+# if not api_key:
+#     print("❌ OPENAI_API_KEY not found in .env")
+#     exit(1)
+
+# # Set up OpenAI client for OpenRouter
+# client = OpenAI(
+#     base_url="https://openrouter.ai/api/v1",
+#     api_key=api_key,
+# )
+
+# main_branch = "main"
+# current_branch = "test_repo_change_summary_test"  # or use subprocess to detect dynamically
+
+# # Check if working directory is clean
+# status = subprocess.check_output(["git", "status", "--porcelain"]).decode().strip()
+# if status:
+#     print("❌ Your working directory is not clean. Please commit or stash your changes.")
+#     exit(1)
+
+# # Ensure we're up-to-date
+# try:
+#     subprocess.check_output(["git", "merge-base", current_branch, f"origin/{main_branch}"])
+#     subprocess.run(["git", "fetch", "origin", main_branch], check=True)
+# except subprocess.CalledProcessError:
+#     print("❌ Ensure you're tracking the correct remote branches.")
+#     exit(1)
+
+# # Get common ancestor
+# base_commit = subprocess.check_output(["git", "merge-base", current_branch, f"origin/{main_branch}"]).decode().strip()
+
+# # Get diff for server.py
+# diff = subprocess.check_output(["git", "diff", base_commit, "HEAD", "--", "server.py"]).decode("utf-8")
+# if not diff.strip():
+#     print("✅ No changes detected in server.py.")
+#     exit(0)
+
+# # Truncate if too long
+# MAX_INPUT = 12000
+# if len(diff) > MAX_INPUT:
+#     diff = diff[:MAX_INPUT] + "\n\n[Diff truncated due to length...]"
+
+# # Call OpenRouter for summarization
+# try:
+#     response = client.chat.completions.create(
+#         model="openai/gpt-4o",  # or other model listed on OpenRouter
+#         messages=[
+#             {"role": "system", "content": "You are a helpful assistant that summarizes code changes."},
+#             {"role": "user", "content": f"Summarize the following git diff for server.py:\n\n{diff}"}
+#         ]
+#     )
+#     summary = response.choices[0].message.content
+#     print("\n🔍 Summary of changes in server.py:\n")
+#     print(summary)
+
+# except Exception as e:
+#     print("❌ Failed to summarize diff.")
+#     print(str(e))
+#     exit(1)
+
+
+
 import subprocess
 import os
+import requests
 from dotenv import load_dotenv
-from openai import OpenAI
 
-# Load environment variables
+# Load environment variables from .env
 load_dotenv()
-api_key = os.getenv("OPENAI_API_KEY")
+api_key = os.getenv("OPENROUTER_API_KEY")
 
 if not api_key:
-    print("❌ OPENAI_API_KEY not found in .env")
+    print("❌ Error: OPENROUTER_API_KEY not found in .env file.")
     exit(1)
 
-# Set up OpenAI client for OpenRouter
-client = OpenAI(
-    base_url="https://openrouter.ai/api/v1",
-    api_key=api_key,
-)
-
+# Define branch info
 main_branch = "main"
-current_branch = "test_repo_change_summary_test"  # or use subprocess to detect dynamically
+current_branch = "test_branch"  # You can auto-detect with Git if needed
 
-# Check if working directory is clean
+# Ensure working directory is clean
 status = subprocess.check_output(["git", "status", "--porcelain"]).decode().strip()
 if status:
     print("❌ Your working directory is not clean. Please commit or stash your changes.")
     exit(1)
 
-# Ensure we're up-to-date
+# Ensure branches are synced
+subprocess.run(["git", "fetch", "origin", main_branch], check=True)
+
 try:
-    subprocess.check_output(["git", "merge-base", current_branch, f"origin/{main_branch}"])
-    subprocess.run(["git", "fetch", "origin", main_branch], check=True)
+    base_commit = subprocess.check_output(
+        ["git", "merge-base", current_branch, f"origin/{main_branch}"]
+    ).decode().strip()
 except subprocess.CalledProcessError:
-    print("❌ Ensure you're tracking the correct remote branches.")
+    print("❌ Failed to find common ancestor between branches.")
     exit(1)
 
-# Get common ancestor
-base_commit = subprocess.check_output(["git", "merge-base", current_branch, f"origin/{main_branch}"]).decode().strip()
-
-# Get diff for server.py
-diff = subprocess.check_output(["git", "diff", base_commit, "HEAD", "--", "server.py"]).decode("utf-8")
-if not diff.strip():
-    print("✅ No changes detected in server.py.")
-    exit(0)
+# Get diff
+try:
+    diff = subprocess.check_output(
+        ["git", "diff", base_commit, "HEAD", "--", "server.py"]
+    ).decode("utf-8")
+    if not diff.strip():
+        print("✅ No changes detected in server.py.")
+        exit(0)
+except subprocess.CalledProcessError as e:
+    print("❌ Failed to get diff:", str(e))
+    exit(1)
 
 # Truncate if too long
 MAX_INPUT = 12000
 if len(diff) > MAX_INPUT:
     diff = diff[:MAX_INPUT] + "\n\n[Diff truncated due to length...]"
 
-# Call OpenRouter for summarization
-try:
-    response = client.chat.completions.create(
-        model="openai/gpt-4o",  # or other model listed on OpenRouter
-        messages=[
-            {"role": "system", "content": "You are a helpful assistant that summarizes code changes."},
-            {"role": "user", "content": f"Summarize the following git diff for server.py:\n\n{diff}"}
-        ]
-    )
-    summary = response.choices[0].message.content
+# Prepare OpenRouter chat completion
+url = "https://openrouter.ai/api/v1/chat/completions"
+headers = {
+    "Authorization": f"Bearer {api_key}",
+    "Content-Type": "application/json",
+}
+payload = {
+    "model": "deepseek/deepseek-chat:free",
+    "messages": [
+        {
+            "role": "system",
+            "content": "You are a helpful assistant that summarizes code diffs for developers.",
+        },
+        {
+            "role": "user",
+            "content": f"Summarize the following diff:\n\n{diff}",
+        },
+    ],
+    "stream": False,
+}
+
+# Send request
+response = requests.post(url, headers=headers, json=payload)
+
+if response.status_code == 200:
+    data = response.json()
+    summary = data["choices"][0]["message"]["content"]
     print("\n🔍 Summary of changes in server.py:\n")
     print(summary)
-
-except Exception as e:
+else:
     print("❌ Failed to summarize diff.")
-    print(str(e))
-    exit(1)
+    print(f"Error code: {response.status_code} - {response.json()}")
+
+
 
 
 
