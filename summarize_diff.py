@@ -90,7 +90,7 @@ if not openai.api_key:
 
 # Define your main and current branch
 main_branch = "main"
-current_branch = "test_branch"  # Replace with your current branch name
+current_branch = "test_repo_change_summary_test"  # Replace with your current branch name
 
 # Check if the current branch is clean
 try:
