@@ -82,6 +82,8 @@ load_dotenv()
 
 # Load your DeepSeek API key
 deepseek_api_key = os.getenv("DEEPSEEK_API_KEY")
+print(f"DeepSeek API Key: {deepseek_api_key}")
+
 
 # Ensure the DeepSeek API key is loaded
 if not deepseek_api_key:
