@@ -73,75 +73,48 @@
 
 
 import subprocess
-import openai
 import os
 from dotenv import load_dotenv
+from openai import OpenAI
 
-# Load environment variables from .env file
+# Load environment variables
 load_dotenv()
+api_key = os.getenv("OPENAI_API_KEY")
 
-# Load your OpenAI API key
-openai.api_key = os.getenv("OPENAI_API_KEY")
-
-# Check if the API key is loaded
-if not openai.api_key:
-    print("Error: OpenAI API key is not set in environment variables.")
+if not api_key:
+    print("❌ OPENAI_API_KEY not found in .env")
     exit(1)
 
-# Define your main and current branch
+# Set up OpenAI client for OpenRouter
+client = OpenAI(
+    base_url="https://openrouter.ai/api/v1",
+    api_key=api_key,
+)
+
 main_branch = "main"
-current_branch = "test_repo_change_summary_test"  # Replace with your current branch name
+current_branch = "test_repo_change_summary_test"  # or use subprocess to detect dynamically
 
-# Check if the current branch is clean
-try:
-    status = subprocess.check_output(["git", "status", "--porcelain"]).decode().strip()
-    if status:
-        print("Your working directory has uncommitted changes. Please commit or stash them.")
-        exit(1)
-except subprocess.CalledProcessError:
-    print("Error: Unable to check git status.")
+# Check if working directory is clean
+status = subprocess.check_output(["git", "status", "--porcelain"]).decode().strip()
+if status:
+    print("❌ Your working directory is not clean. Please commit or stash your changes.")
     exit(1)
 
-# Check if the current branch is up to date with origin/main
+# Ensure we're up-to-date
 try:
     subprocess.check_output(["git", "merge-base", current_branch, f"origin/{main_branch}"])
+    subprocess.run(["git", "fetch", "origin", main_branch], check=True)
 except subprocess.CalledProcessError:
-    print(f"Your branch {current_branch} is not up to date with origin/{main_branch}. Please pull the latest changes.")
+    print("❌ Ensure you're tracking the correct remote branches.")
     exit(1)
 
-# Check if the current branch is ahead of origin/main
-try:
-    subprocess.check_output(["git", "rev-list", "--left-only", "--count", f"origin/{main_branch}...{current_branch}"])
-except subprocess.CalledProcessError:
-    print(f"Your branch {current_branch} is ahead of origin/{main_branch}. Please push your changes.")
-    exit(1)
+# Get common ancestor
+base_commit = subprocess.check_output(["git", "merge-base", current_branch, f"origin/{main_branch}"]).decode().strip()
 
-# Check if the current branch is behind origin/main
-try:
-    subprocess.check_output(["git", "rev-list", "--right-only", "--count", f"{current_branch}...origin/{main_branch}"])
-except subprocess.CalledProcessError:
-    print(f"Your branch {current_branch} is behind origin/{main_branch}. Please pull the latest changes.")
-    exit(1)
-
-# Fetch latest changes to ensure we have origin/main
-subprocess.run(["git", "fetch", "origin", main_branch], check=True)
-
-# Find common ancestor (merge base)
-try:
-    base_commit = subprocess.check_output(["git", "merge-base", current_branch, f"origin/{main_branch}"]).decode().strip()
-except subprocess.CalledProcessError:
-    print("Error: Unable to find common ancestor.")
-    exit(1)
-
-# Get the diff for just server.py
-try:
-    diff = subprocess.check_output(["git", "diff", base_commit, "HEAD", "--", "server.py"]).decode("utf-8")
-except subprocess.CalledProcessError:
-    print("Error: Unable to get diff for server.py.")
-    exit(1)
-
+# Get diff for server.py
+diff = subprocess.check_output(["git", "diff", base_commit, "HEAD", "--", "server.py"]).decode("utf-8")
 if not diff.strip():
-    print("No changes detected in server.py.")
+    print("✅ No changes detected in server.py.")
     exit(0)
 
 # Truncate if too long
@@ -149,21 +122,23 @@ MAX_INPUT = 12000
 if len(diff) > MAX_INPUT:
     diff = diff[:MAX_INPUT] + "\n\n[Diff truncated due to length...]"
 
-# Use OpenAI to summarize
-response = openai.Completion.create(
-    model="gpt-4",  # Or gpt-3.5-turbo
-    prompt=f"Summarize this code diff of server.py:\n\n{diff}",
-    temperature=0.3,
-    max_tokens=300
-)
-
-# Ensure the response contains the expected keys
-if "choices" in response and len(response["choices"]) > 0:
-    summary = response['choices'][0]['text']
+# Call OpenRouter for summarization
+try:
+    response = client.chat.completions.create(
+        model="openai/gpt-4o",  # or other model listed on OpenRouter
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant that summarizes code changes."},
+            {"role": "user", "content": f"Summarize the following git diff for server.py:\n\n{diff}"}
+        ]
+    )
+    summary = response.choices[0].message.content
     print("\n🔍 Summary of changes in server.py:\n")
     print(summary)
-else:
-    print("Error: No summary available.")
+
+except Exception as e:
+    print("❌ Failed to summarize diff.")
+    print(str(e))
+    exit(1)
 
 
 
