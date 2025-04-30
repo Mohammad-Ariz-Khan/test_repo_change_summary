@@ -150,19 +150,16 @@ if len(diff) > MAX_INPUT:
     diff = diff[:MAX_INPUT] + "\n\n[Diff truncated due to length...]"
 
 # Use OpenAI to summarize
-response = openai.ChatCompletion.create(
+response = openai.Completion.create(
     model="gpt-4",  # Or gpt-3.5-turbo
-    messages=[
-        {"role": "system", "content": "You are an assistant that summarizes code diffs for developers."},
-        {"role": "user", "content": f"Summarize this code diff of server.py:\n\n{diff}"}
-    ],
+    prompt=f"Summarize this code diff of server.py:\n\n{diff}",
     temperature=0.3,
     max_tokens=300
 )
 
 # Ensure the response contains the expected keys
 if "choices" in response and len(response["choices"]) > 0:
-    summary = response['choices'][0]['message']['content']
+    summary = response['choices'][0]['text']
     print("\n🔍 Summary of changes in server.py:\n")
     print(summary)
 else:
