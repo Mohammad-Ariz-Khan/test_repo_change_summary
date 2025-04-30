@@ -432,7 +432,8 @@ def get_movies_with_avg_rating():
             "Description": movie[2],
             "Genre": movie[3],
             "ReleaseDate": movie[4],
-            "AverageRating": movie[5]
+            "AverageRating": movie[5],
+            "OnlyForUser": movie[1] in my_global_set  # Check if the movie is in the user's personal list
         } for movie in movies]
 
         return jsonify({'movies': movie_list}), 200
