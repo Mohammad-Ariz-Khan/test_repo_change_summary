@@ -164,7 +164,7 @@ print(f"Diff Length: {len(diff)}")
 print(f"Diff Preview (first 500 characters): {diff[:500]}")
 
 # DeepSeek API request to summarize the diff
-url = "https://api.deepseek.com/summarize"  # Verify this endpoint with DeepSeek API documentation
+url = "https://api.deepseek.com/v1/summarize"  # Verify this endpoint with DeepSeek API documentation
 headers = {
     "Authorization": f"Bearer {deepseek_api_key}",
     "Content-Type": "application/json"
