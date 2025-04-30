@@ -22,6 +22,8 @@ jwt = JWTManager(app)
 # CORS(app)
 CORS(app, resources={r"/*": {"origins": "http://localhost:5173"}})
 
+print("THIS IS TEST NO.1")
+
 # SQL Server connection parameters
 server = 'localhost' 
 database = 'BhavnaMovieBonanza' 
