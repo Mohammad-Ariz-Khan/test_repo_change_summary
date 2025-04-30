@@ -82,13 +82,14 @@ load_dotenv()
 
 # Load your DeepSeek API key
 deepseek_api_key = os.getenv("DEEPSEEK_API_KEY")
-print(f"DeepSeek API Key: {deepseek_api_key}")
-
 
 # Ensure the DeepSeek API key is loaded
 if not deepseek_api_key:
     print("Error: DEEPSEEK_API_KEY not found in environment variables.")
     exit(1)
+
+# Print API key to verify it's loaded correctly
+print(f"DeepSeek API Key: {deepseek_api_key}")
 
 # Define your main and current branch
 main_branch = "main"
@@ -158,8 +159,12 @@ MAX_INPUT = 12000
 if len(diff) > MAX_INPUT:
     diff = diff[:MAX_INPUT] + "\n\n[Diff truncated due to length...]"
 
+# Print diff length and a preview
+print(f"Diff Length: {len(diff)}")
+print(f"Diff Preview (first 500 characters): {diff[:500]}")
+
 # DeepSeek API request to summarize the diff
-url = "https://api.deepseek.com/summarize"  # Replace with the actual DeepSeek API endpoint
+url = "https://api.deepseek.com/summarize"  # Verify this endpoint with DeepSeek API documentation
 headers = {
     "Authorization": f"Bearer {deepseek_api_key}",
     "Content-Type": "application/json"
@@ -182,4 +187,5 @@ except requests.exceptions.RequestException as e:
     print("Error: Unable to make request to DeepSeek API.")
     print(e)
     exit(1)
+
 
